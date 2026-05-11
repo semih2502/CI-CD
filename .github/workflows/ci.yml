@@ -64,5 +64,21 @@ jobs:
       run: |
         curl -f http://localhost:3000/products || (docker compose logs api && exit 1)
 
+    - name: Test API metrics endpoint
+      run: |
+        METRICS=$(curl -s http://localhost:3000/metrics)
+        echo "$METRICS" | jq '.' || (echo "Invalid JSON response" && exit 1)
+        
+        # Verify metrics structure
+        SUCCESS_RATE=$(echo "$METRICS" | jq '.requests.success_rate_percent')
+        echo "Success rate: $SUCCESS_RATE%"
+        
+        # Fail if too many errors
+        ERRORS=$(echo "$METRICS" | jq '.requests.errors')
+        if [ "$ERRORS" -gt "0" ]; then
+          echo "Warning: $ERRORS errors detected"
+          echo "$METRICS" | jq '.last_error'
+        fi
+
     - name: Stop services
       run: docker compose down
