@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      working-directory: ./api
+      run: npm ci
+
+    - name: Run lint
+      working-directory: ./api
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: ./api
+      run: npm test
+
+    - name: Build API Docker image
+      run: docker build -t trainshop-api ./api
+
+    - name: Build Frontend Docker image
+      run: docker build -t trainshop-frontend ./frontend
+
+    - name: Test Docker Compose build
+      run: docker compose build
+
+    - name: Start services
+      run: |
+        export API_PORT=3000
+        export POSTGRES_DB=trainshop
+        export POSTGRES_USER=trainshop
+        export POSTGRES_PASSWORD=trainshop_password
+        export DATABASE_URL=postgres://trainshop:trainshop_password@db:5432/trainshop
+        docker compose up -d
+
+    - name: Wait for services to be healthy
+      run: |
+        timeout 60 bash -c 'until docker compose ps | grep -q "healthy\|running"; do sleep 2; done'
+
+    - name: Test API health endpoint
+      run: |
+        curl -f http://localhost:3000/health || (docker compose logs api && exit 1)
+
+    - name: Test API products endpoint
+      run: |
+        curl -f http://localhost:3000/products || (docker compose logs api && exit 1)
+
+    - name: Stop services
+      run: docker compose down
