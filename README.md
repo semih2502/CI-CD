@@ -93,3 +93,4 @@ Puis ajouter progressivement :
 1. un workflow CI qui lance les tests API ;
 2. un workflow qui vérifie les builds Docker ;
 3. éventuellement un workflow de publication Docker, en bonus.
+# CI-CD
